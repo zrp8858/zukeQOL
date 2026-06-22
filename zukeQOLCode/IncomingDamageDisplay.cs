@@ -234,9 +234,8 @@ public static class IncomingDamageDisplay
     ///       useful than the raw base value.
     ///
     ///     TODO:
-    ///     - Introduce player block into the calculation
     ///     - Introduce effects like buffer & intangible into the calculation
-    ///     - Account for relics? (Player cannot take more than so much damage in a turn)
+    ///     - Account for relics? (Player cannot take more than so much damage in a turn, damage reduced)
     ///     - Account for self inflicting damage cards
     ///
     ///     Future idea:
@@ -250,8 +249,10 @@ public static class IncomingDamageDisplay
     {
         if (creature.CombatState == null) return 0;
 
-        var total = 0;
+        var player = LocalContext.GetMe(RunManager.Instance.State);
+        int raw = 0, blocked = 0, blockRemaining = 0, total = 0;
 
+        // Calculates total incoming damage from all enemies
         foreach (var hittableEnemy in creature.CombatState.HittableEnemies)
         {
             foreach (var intent in hittableEnemy.Monster.NextMove.Intents)
@@ -261,10 +262,17 @@ public static class IncomingDamageDisplay
                 // still deals damage and should be counted.
                 if (intent.IntentType is IntentType.Attack or IntentType.DeathBlow)
                 {
-                    total += ((AttackIntent)intent).GetTotalDamage([creature], hittableEnemy);
+                    raw += ((AttackIntent)intent).GetTotalDamage([creature], hittableEnemy);
                 }
             }
         }
+
+        if (player == null) return total;
+        var block = player.Creature._block;
+        
+        total = Math.Max(0, raw - block);
+        blocked = Math.Min(block, raw);
+        blockRemaining = Math.Max(0, block - raw);
 
         return total;
     }
