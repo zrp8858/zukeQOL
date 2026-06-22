@@ -17,33 +17,6 @@ namespace zukeQOL.zukeQOLCode;
 public static class IncomingDamageDisplay
 {
     // -------------------------------------------------------------------------
-    // Data Structures
-    // -------------------------------------------------------------------------
-
-    private struct DamageInfo()
-    {
-        public int Raw = 0;
-        public int Total = 0;
-        public int Blocked = 0;
-        public int BlockRemaining = 0;
-    }
-    
-    // -------------------------------------------------------------------------
-    // Constants
-    // -------------------------------------------------------------------------
-
-    /// <summary>
-    ///     The name of our label node in the scene tree.
-    ///     Must be unique so we can reliably find it with GetNode().
-    /// </summary>
-    private const string LabelNodeName = "incomingDamageLabel";
-
-    /// <summary>Pixels between the right edge of the HP bar and our label.</summary>
-    private const float RightPadding = 6f;
-
-    private const int FontSize = 18;
-
-    // -------------------------------------------------------------------------
     // State
     // -------------------------------------------------------------------------
 
@@ -54,6 +27,8 @@ public static class IncomingDamageDisplay
     ///     the node hasn't been freed from the scene tree.
     /// </summary>
     private static NHealthBar? _playerHealthBar;
+    
+    private static IncomingDamagePanel? _panel;
 
     // -------------------------------------------------------------------------
     // Harmony Patches
@@ -72,7 +47,7 @@ public static class IncomingDamageDisplay
     {
         if (!IsPlayerBar(__instance)) return;
         _playerHealthBar = __instance;
-        CreateLabelIfNotExist(__instance);
+        CreatePanelIfNotExists(__instance);
     }
 
     /// <summary>
@@ -114,7 +89,7 @@ public static class IncomingDamageDisplay
     public static void AfterResize(NHealthBar __instance, Vector2 size)
     {
         if (!IsPlayerBar(__instance)) return;
-        RepositionLabel(__instance, size);
+        RepositionLabel(__instance);
     }
 
     // -------------------------------------------------------------------------
@@ -125,65 +100,24 @@ public static class IncomingDamageDisplay
     ///     Creates our Label node and attaches it to the scene tree, but only
     ///     if we haven't done so already. Safe to call multiple times.
     /// </summary>
-    private static void CreateLabelIfNotExist(NHealthBar bar)
+    private static void CreatePanelIfNotExists(NHealthBar bar)
     {
-        // HasNode checks if a child with this name already exists in the tree.
-        // This prevents us from creating duplicate labels.
-        if (bar.HasNode(LabelNodeName)) return;
+        if (_panel != null) return;
+        _panel = new IncomingDamagePanel();
 
-        var label = new Label
-        {
-            Name = LabelNodeName,
-            Text = "",
-
-            // MouseFilterEnum.Ignore means the label won't intercept mouse events
-            // (clicks, hovers). This is almost always what you want for HUD overlays.
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-
-            Visible = false,
-            HorizontalAlignment = HorizontalAlignment.Left,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-
-        // Style the label
-        label.AddThemeColorOverride("font_color", Colors.Salmon);
-        label.AddThemeFontSizeOverride("font_size", FontSize);
-
-        // We add the label as a child of the HP bar container's parent.
-        // This puts it in the same coordinate space as the bar container,
-        // making relative positioning straightforward.
         var container = bar.HpBarContainer;
         var parent = container.GetParent() as Control ?? bar;
-        parent.AddChild(label);
-
-        // Position it for the first time using the container's current size.
-        RepositionLabel(bar, container.Size);
+        parent.AddChild(_panel.Root);
     }
 
     /// <summary>
     ///     Positions the label to sit just to the right of the HP bar container.
     /// </summary>
-    private static void RepositionLabel(NHealthBar bar, Vector2 barSize)
+    private static void RepositionLabel(NHealthBar bar)
     {
-        if (!bar.HasNode(LabelNodeName)) return;
-        var label = (Label) bar.GetNode(LabelNodeName);
-        if (label == null) return;
+        if (_panel == null) return;
 
-        var container = bar.HpBarContainer;
-
-        // Give the label enough width for a 3-digit number + the arrow character.
-        // The height matches the font line height.
-        var labelWidth = 60f;
-        var labelHeight = FontSize * 1.2f;
-
-        label.Size = new Vector2(labelWidth, labelHeight);
-
-        // Position: start at the right edge of the bar container, offset by padding.
-        // Vertically center it within the bar.
-        label.Position = new Vector2(
-            container.Position.X + barSize.X + RightPadding,
-            container.Position.Y + (barSize.Y - labelHeight) / 2f
-        );
+        _panel.Reposition(bar);
     }
 
     /// <summary>
@@ -191,18 +125,13 @@ public static class IncomingDamageDisplay
     /// </summary>
     private static void RefreshLabel(NHealthBar bar)
     {
-        if (!bar.HasNode(LabelNodeName)) return;
-        var label = (Label) bar.GetNode(LabelNodeName);
-
-        // If the bar itself isn't visible, hide our label too.
-        if (label == null || !bar.Visible)
-            return;
+        if (_panel == null || !bar.Visible) return;
 
         // During the enemy's turn the damage is already happening — no need
         // to show a forecast. Hide the label.
         if (CombatManager.Instance.IsEnemyTurnStarted)
         {
-            label.Visible = false;
+            _panel.SetVisible(false);
             return;
         }
 
@@ -210,22 +139,14 @@ public static class IncomingDamageDisplay
         var creature = bar._creature;
         if (creature?.Player == null || creature.CombatState == null)
         {
-            label.Visible = false;
+            _panel.SetVisible(false);
             return;
         }
 
         var damageInfo = CalculateIncomingDamage(creature);
-
-        if (damageInfo.Total > 0)
-        {
-            // The left arrow gives a visual hint that this number is "incoming".
-            label.Text = $"←{damageInfo.Total}";
-            label.Visible = true;
-        }
-        else
-        {
-            label.Visible = false;
-        }
+        
+        _panel.Update(damageInfo);
+        _panel.SetVisible(true);
     }
 
     // -------------------------------------------------------------------------
@@ -256,9 +177,9 @@ public static class IncomingDamageDisplay
     ///         - Remaining block
     ///         - Source breakdown (this could be a lot -- consider minimizing the refresh count before this)
     /// </summary>
-    private static DamageInfo CalculateIncomingDamage(Creature creature)
+    private static IncomingDamageInfo CalculateIncomingDamage(Creature creature)
     {
-        if (creature.CombatState == null) return new DamageInfo();
+        if (creature.CombatState == null) return new IncomingDamageInfo();
 
         var player = LocalContext.GetMe(RunManager.Instance.State);
         int raw = 0, blocked = 0, blockRemaining = 0, total = 0;
@@ -278,14 +199,14 @@ public static class IncomingDamageDisplay
             }
         }
 
-        if (player == null) return new DamageInfo();
+        if (player == null) return new IncomingDamageInfo();
         var block = player.Creature._block;
         
         total = Math.Max(0, raw - block);
         blocked = Math.Min(block, raw);
         blockRemaining = Math.Max(0, block - raw);
         
-        return new DamageInfo { Raw = raw, Total = total, Blocked = blocked, BlockRemaining = blockRemaining };
+        return new IncomingDamageInfo { Raw = raw, Total = total, Blocked = blocked, BlockRemaining = blockRemaining };
     }
 
     // -------------------------------------------------------------------------
