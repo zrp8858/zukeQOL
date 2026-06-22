@@ -14,6 +14,9 @@ public class IncomingDamagePanel
 
     public Control Root => _panel;
 
+    /// <summary>
+    ///     The object form of the damage panel.
+    /// </summary>
     public IncomingDamagePanel()
     {
         _panel = new PanelContainer();
@@ -35,11 +38,19 @@ public class IncomingDamagePanel
         _panel.AddChild(margin);
     }
 
+    /// <summary>
+    ///     Adjusts the visibility of the panel.
+    /// </summary>
+    /// <param name="visible"></param>  Boolean representing the desired visibility.
     public void SetVisible(bool visible)
     {
         _panel.Visible = visible;
     }
     
+    /// <summary>
+    ///     Repositions the panel to the correct location.
+    /// </summary>
+    /// <param name="creatureNode"></param> NCreature to use for positioning
     public void Reposition(NCreature creatureNode)
     {
         var hitbox = creatureNode.Hitbox;
@@ -52,6 +63,10 @@ public class IncomingDamagePanel
         );
     }
 
+    /// <summary>
+    ///     Updates the information displayed in the panel.
+    /// </summary>
+    /// <param name="damage"></param>   New damage information.
     public void Update(IncomingDamageInfo damage)
     {
         _raw.Text       = $"Raw:         {damage.Raw}";

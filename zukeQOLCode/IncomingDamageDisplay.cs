@@ -10,8 +10,8 @@ using MegaCrit.Sts2.Core.Runs;
 namespace zukeQOL.zukeQOLCode;
 
 /// <summary>
-///     Adds a label to the right of the player's HP bar showing the total
-///     incoming attack damage from all enemies this turn.
+///     Adds a panel to the left of the player's hitbox showing information
+///     about incoming attack damage this turn.
 /// </summary>
 [HarmonyPatch(typeof(NHealthBar))]
 public static class IncomingDamageDisplay
@@ -20,16 +20,10 @@ public static class IncomingDamageDisplay
     // State
     // -------------------------------------------------------------------------
 
-    /// <summary>
-    ///     A reference to the player's health bar node.
-    ///     We store this so we can find our label again when monsters die.
-    ///     We wrap the check with GodotObject.IsInstanceValid() to make sure
-    ///     the node hasn't been freed from the scene tree.
-    /// </summary>
-    private static NHealthBar? _playerHealthBar;
-    private static NCreature? _playerCreatureNode;
+    private static NHealthBar? _playerHealthBar;    // Reference to the player's NHealthBar node
+    private static NCreature? _playerCreatureNode;  // Reference to the players NCreature node
     
-    private static IncomingDamagePanel? _panel;
+    private static IncomingDamagePanel? _panel;     // Panel displaying damage information
 
     // -------------------------------------------------------------------------
     // Harmony Patches
@@ -39,8 +33,10 @@ public static class IncomingDamageDisplay
     ///     PATCH: NHealthBar.SetCreature
     ///
     ///     The game calls SetCreature when it assigns a creature (player or monster)
-    ///     to a health bar node. We use this moment to create our label for the
-    ///     first time, because at this point the bar's creature reference is valid.
+    ///     to a health bar node. We use this moment to create a reference to the player's health bar
+    ///     because at this point the bar's creature reference is valid.
+    ///
+    ///     TODO: Can this be done simply by dereferencing the player
     /// </summary>
     [HarmonyPostfix]
     [HarmonyPatch(nameof(NHealthBar.SetCreature))]
@@ -50,6 +46,13 @@ public static class IncomingDamageDisplay
         _playerHealthBar = __instance;
     }
     
+    /// <summary>
+    ///     PATCH: NCreature.UpdateBounds
+    ///
+    ///     The game calls UpdateBounds whenever the hitbox of a creature is updated.
+    ///     We use this call to create and/or reposition the information panel next to this hitbox.
+    /// </summary>
+    /// <param name="__instance"></param>
     [HarmonyPostfix]
     [HarmonyPatch(typeof(NCreature), nameof(NCreature.UpdateBounds), typeof(Node))]
     public static void AfterCreatureUpdate(NCreature __instance)
@@ -92,6 +95,10 @@ public static class IncomingDamageDisplay
     // Panel Lifecycle Helpers
     // -------------------------------------------------------------------------
     
+    /// <summary>
+    ///     Creates the info panel object for the first time.
+    ///     Safe to call multiple times.
+    /// </summary>
     private static void CreatePanelIfNotExists()
     {
         if (_panel != null) return;
@@ -104,7 +111,7 @@ public static class IncomingDamageDisplay
     }
 
     /// <summary>
-    ///     Positions the label to sit just to the right of the HP bar container.
+    ///     Positions the panel just left of the player's hitbox.
     /// </summary>
     private static void RepositionPanel()
     {
@@ -114,7 +121,7 @@ public static class IncomingDamageDisplay
     }
 
     /// <summary>
-    ///     Updates the label's text and visibility based on the current combat state.
+    ///     Updates the panel based on the current combat state.
     /// </summary>
     private static void RefreshPanel()
     {
