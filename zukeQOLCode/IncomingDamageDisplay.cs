@@ -115,7 +115,7 @@ public static class IncomingDamageDisplay
     /// </summary>
     private static void RepositionPanel()
     {
-        if (_panel == null) return;
+        if (_panel == null || _playerCreatureNode == null) return;
 
         _panel.Reposition(_playerCreatureNode);
     }
@@ -127,8 +127,7 @@ public static class IncomingDamageDisplay
     {
         if (_panel == null || _playerHealthBar == null || !_playerHealthBar.Visible) return;
 
-        // During the enemy's turn the damage is already happening — no need
-        // to show a forecast. Hide the label.
+        // Hide panel during enemy turn
         if (CombatManager.Instance.IsEnemyTurnStarted)
         {
             _panel.SetVisible(false);
@@ -137,7 +136,7 @@ public static class IncomingDamageDisplay
 
         // Sanity check: make sure we have a valid creature in a combat state.
         var creature = _playerHealthBar._creature;
-        if (creature?.Player == null || creature.CombatState == null)
+        if (creature.Player == null || creature.CombatState == null)
         {
             _panel.SetVisible(false);
             return;
@@ -182,11 +181,12 @@ public static class IncomingDamageDisplay
         if (creature.CombatState == null) return new IncomingDamageInfo();
 
         var player = LocalContext.GetMe(RunManager.Instance.State);
-        int raw = 0, blocked = 0, blockRemaining = 0, total = 0;
+        var raw = 0;
 
         // Calculates total incoming damage from all enemies
         foreach (var hittableEnemy in creature.CombatState.HittableEnemies)
         {
+            if (hittableEnemy.Monster == null) continue;
             foreach (var intent in hittableEnemy.Monster.NextMove.Intents)
             {
                 // Filter to only attack-type intents.
@@ -202,9 +202,9 @@ public static class IncomingDamageDisplay
         if (player == null) return new IncomingDamageInfo();
         var block = player.Creature._block;
         
-        total = Math.Max(0, raw - block);
-        blocked = Math.Min(block, raw);
-        blockRemaining = Math.Max(0, block - raw);
+        var total = Math.Max(0, raw - block);
+        var blocked = Math.Min(block, raw);
+        var blockRemaining = Math.Max(0, block - raw);
         
         return new IncomingDamageInfo { Raw = raw, Unblocked = total, Blocked = blocked, RemainingBlock = blockRemaining };
     }
@@ -220,6 +220,6 @@ public static class IncomingDamageDisplay
     private static bool IsPlayerBar(NHealthBar bar)
     {
         var player = LocalContext.GetMe(RunManager.Instance.State);
-        return player != null && bar._creature?.Player == player;
+        return player != null && bar._creature.Player == player;
     }
 }
