@@ -17,6 +17,18 @@ namespace zukeQOL.zukeQOLCode;
 public static class IncomingDamageDisplay
 {
     // -------------------------------------------------------------------------
+    // Data Structures
+    // -------------------------------------------------------------------------
+
+    private struct DamageInfo()
+    {
+        public int Raw = 0;
+        public int Total = 0;
+        public int Blocked = 0;
+        public int BlockRemaining = 0;
+    }
+    
+    // -------------------------------------------------------------------------
     // Constants
     // -------------------------------------------------------------------------
 
@@ -202,12 +214,12 @@ public static class IncomingDamageDisplay
             return;
         }
 
-        var totalDamage = CalculateIncomingDamage(creature);
+        var damageInfo = CalculateIncomingDamage(creature);
 
-        if (totalDamage > 0)
+        if (damageInfo.Total > 0)
         {
             // The left arrow gives a visual hint that this number is "incoming".
-            label.Text = $"←{totalDamage}";
+            label.Text = $"←{damageInfo.Total}";
             label.Visible = true;
         }
         else
@@ -244,9 +256,9 @@ public static class IncomingDamageDisplay
     ///         - Remaining block
     ///         - Source breakdown (this could be a lot -- consider minimizing the refresh count before this)
     /// </summary>
-    private static int CalculateIncomingDamage(Creature creature)
+    private static DamageInfo CalculateIncomingDamage(Creature creature)
     {
-        if (creature.CombatState == null) return 0;
+        if (creature.CombatState == null) return new DamageInfo();
 
         var player = LocalContext.GetMe(RunManager.Instance.State);
         int raw = 0, blocked = 0, blockRemaining = 0, total = 0;
@@ -266,14 +278,14 @@ public static class IncomingDamageDisplay
             }
         }
 
-        if (player == null) return total;
+        if (player == null) return new DamageInfo();
         var block = player.Creature._block;
         
         total = Math.Max(0, raw - block);
         blocked = Math.Min(block, raw);
         blockRemaining = Math.Max(0, block - raw);
-
-        return total;
+        
+        return new DamageInfo { Raw = raw, Total = total, Blocked = blocked, BlockRemaining = blockRemaining };
     }
 
     // -------------------------------------------------------------------------
