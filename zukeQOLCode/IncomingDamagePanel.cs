@@ -9,7 +9,7 @@ public class IncomingDamagePanel
 
     private readonly Label _raw;
     private readonly Label _blocked;
-    private readonly Label _incoming;
+    private readonly Label _unblocked;
     private readonly Label _remaining;
 
     public Control Root => _panel;
@@ -22,13 +22,13 @@ public class IncomingDamagePanel
         var vbox = new VBoxContainer();
 
         _raw = new Label();
+        _unblocked = new Label();
         _blocked = new Label();
-        _incoming = new Label();
         _remaining = new Label();
 
         vbox.AddChild(_raw);
+        vbox.AddChild(_unblocked);
         vbox.AddChild(_blocked);
-        vbox.AddChild(_incoming);
         vbox.AddChild(_remaining);
 
         margin.AddChild(vbox);
@@ -53,8 +53,8 @@ public class IncomingDamagePanel
     public void Update(IncomingDamageInfo damage)
     {
         _raw.Text       = $"Raw:         {damage.Raw}";
+        _unblocked.Text  = $"Unblocked:    {damage.Unblocked}";
         _blocked.Text   = $"Blocked:     {damage.Blocked}";
-        _incoming.Text  = $"Incoming:    {damage.Total}";
-        _remaining.Text = $"Block Left:  {damage.BlockRemaining}";
+        _remaining.Text = $"Remaining Block:  {damage.RemainingBlock}";
     }
 }

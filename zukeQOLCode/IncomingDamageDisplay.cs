@@ -206,7 +206,7 @@ public static class IncomingDamageDisplay
         blocked = Math.Min(block, raw);
         blockRemaining = Math.Max(0, block - raw);
         
-        return new IncomingDamageInfo { Raw = raw, Total = total, Blocked = blocked, BlockRemaining = blockRemaining };
+        return new IncomingDamageInfo { Raw = raw, Unblocked = total, Blocked = blocked, RemainingBlock = blockRemaining };
     }
 
     // -------------------------------------------------------------------------

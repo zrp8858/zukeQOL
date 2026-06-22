@@ -2,7 +2,7 @@
 
 public readonly record struct IncomingDamageInfo(
     int Raw,
-    int Total,
+    int Unblocked,
     int Blocked,
-    int BlockRemaining
+    int RemainingBlock
 );
