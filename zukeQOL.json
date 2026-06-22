@@ -1,0 +1,14 @@
+﻿{
+  "id": "zukeQOL",
+  "name": "zukeQOL",
+  "author": "zuke2005",
+  "description": "Slay the Spire 2 mod aimed at introducing numerous QOL changes to the game.",
+  "version": "v0.0.0",
+  "min_game_version": "0.107.0",
+  "has_pck": true,
+  "has_dll": true,
+  "dependencies": [
+    {"id": "BaseLib", "min_version": "3.3.1"}
+  ],
+  "affects_gameplay": false
+}

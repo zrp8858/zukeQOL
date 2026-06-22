@@ -1,0 +1,35 @@
+# Build
+bin/
+obj/
+publish/
+
+# Godot
+.godot/
+.import/
+.generated/
+*.import
+*.uid
+*.translation
+.mono/
+
+# IDEs
+.idea/
+.vs/
+.vscode/
+*.user
+*.rsuser
+*.suo
+*.userprefs
+*.DotSettings.user
+
+# NuGet
+packages/
+*.nupkg
+
+# Python
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+Thumbs.db
