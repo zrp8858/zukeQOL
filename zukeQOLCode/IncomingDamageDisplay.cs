@@ -27,6 +27,7 @@ public static class IncomingDamageDisplay
     ///     the node hasn't been freed from the scene tree.
     /// </summary>
     private static NHealthBar? _playerHealthBar;
+    private static NCreature? _playerCreatureNode;
     
     private static IncomingDamagePanel? _panel;
 
@@ -47,7 +48,20 @@ public static class IncomingDamageDisplay
     {
         if (!IsPlayerBar(__instance)) return;
         _playerHealthBar = __instance;
-        CreatePanelIfNotExists(__instance);
+    }
+    
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(NCreature), nameof(NCreature.UpdateBounds), typeof(Node))]
+    public static void AfterCreatureUpdate(NCreature __instance)
+    {
+        var player = LocalContext.GetMe(RunManager.Instance.State);
+        if (player == null || !__instance.Entity.IsPlayer) return;
+        if (__instance.Entity.Player != player) return;
+
+        _playerCreatureNode = __instance;
+        CreatePanelIfNotExists();
+        RefreshPanel();
+        RepositionPanel();
     }
 
     /// <summary>
@@ -70,62 +84,41 @@ public static class IncomingDamageDisplay
     {
         if (_playerHealthBar != null && GodotObject.IsInstanceValid(_playerHealthBar))
         {
-            RefreshLabel(_playerHealthBar);
+            RefreshPanel();
         }
     }
+
+    // -------------------------------------------------------------------------
+    // Panel Lifecycle Helpers
+    // -------------------------------------------------------------------------
     
-    /// <summary>
-    ///     PATCH: NHealthBar.SetHpBarContainerSizeWithOffsets
-    ///
-    ///     The game calls this when the HP bar container changes size (e.g. when the
-    ///     bar transitions between states). We need to reposition our label so it
-    ///     stays anchored to the right edge of the bar.
-    ///
-    ///     Note: The `size` parameter here is automatically matched by Harmony
-    ///     to the original method's parameter of the same type and name.
-    /// </summary>
-    [HarmonyPostfix]
-    [HarmonyPatch(typeof(NHealthBar), "SetHpBarContainerSizeWithOffsets")]
-    public static void AfterResize(NHealthBar __instance, Vector2 size)
-    {
-        if (!IsPlayerBar(__instance)) return;
-        RepositionLabel(__instance);
-    }
-
-    // -------------------------------------------------------------------------
-    // Label Lifecycle Helpers
-    // -------------------------------------------------------------------------
-
-    /// <summary>
-    ///     Creates our Label node and attaches it to the scene tree, but only
-    ///     if we haven't done so already. Safe to call multiple times.
-    /// </summary>
-    private static void CreatePanelIfNotExists(NHealthBar bar)
+    private static void CreatePanelIfNotExists()
     {
         if (_panel != null) return;
         _panel = new IncomingDamagePanel();
-
-        var container = bar.HpBarContainer;
-        var parent = container.GetParent() as Control ?? bar;
-        parent.AddChild(_panel.Root);
+        
+        if (_playerCreatureNode != null && GodotObject.IsInstanceValid(_playerCreatureNode))
+        {
+            _playerCreatureNode.AddChild(_panel.Root);
+        }
     }
 
     /// <summary>
     ///     Positions the label to sit just to the right of the HP bar container.
     /// </summary>
-    private static void RepositionLabel(NHealthBar bar)
+    private static void RepositionPanel()
     {
         if (_panel == null) return;
 
-        _panel.Reposition(bar);
+        _panel.Reposition(_playerCreatureNode);
     }
 
     /// <summary>
     ///     Updates the label's text and visibility based on the current combat state.
     /// </summary>
-    private static void RefreshLabel(NHealthBar bar)
+    private static void RefreshPanel()
     {
-        if (_panel == null || !bar.Visible) return;
+        if (_panel == null || _playerHealthBar == null || !_playerHealthBar.Visible) return;
 
         // During the enemy's turn the damage is already happening — no need
         // to show a forecast. Hide the label.
@@ -136,7 +129,7 @@ public static class IncomingDamageDisplay
         }
 
         // Sanity check: make sure we have a valid creature in a combat state.
-        var creature = bar._creature;
+        var creature = _playerHealthBar._creature;
         if (creature?.Player == null || creature.CombatState == null)
         {
             _panel.SetVisible(false);

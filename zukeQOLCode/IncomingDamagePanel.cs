@@ -39,14 +39,16 @@ public class IncomingDamagePanel
     {
         _panel.Visible = visible;
     }
-
-    public void Reposition(NHealthBar bar)
+    
+    public void Reposition(NCreature creatureNode)
     {
-        var container = bar.HpBarContainer;
+        var hitbox = creatureNode.Hitbox;
+        
+        var panelSize = _panel.GetMinimumSize();
 
         _panel.Position = new Vector2(
-            container.Position.X + container.Size.X + 8,
-            container.Position.Y
+            hitbox.Position.X - panelSize.X - 32f,
+            hitbox.Position.Y + (hitbox.Size.Y - panelSize.Y) / 2f
         );
     }
 
