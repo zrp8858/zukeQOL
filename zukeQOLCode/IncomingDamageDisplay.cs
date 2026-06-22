@@ -72,6 +72,9 @@ public static class IncomingDamageDisplay
     ///     Note: This is very overkill but takes into account every time
     ///     the amount of incoming damage can change - he says with a great
     ///     deal of hope.
+    ///
+    ///     TODO:
+    ///     - Minimize refresh count
     /// </summary>
     /// <param name="caller"></param>
     [HarmonyPostfix]
@@ -229,6 +232,19 @@ public static class IncomingDamageDisplay
     ///     - GetTotalDamage: calculates the *actual* damage after modifiers like
     ///       Vulnerable, Weak, or the player's current armor/block. This is more
     ///       useful than the raw base value.
+    ///
+    ///     TODO:
+    ///     - Introduce player block into the calculation
+    ///     - Introduce effects like buffer & intangible into the calculation
+    ///     - Account for relics? (Player cannot take more than so much damage in a turn)
+    ///     - Account for self inflicting damage cards
+    ///
+    ///     Future idea:
+    ///     - Possibly introduce multiple calculations into the HUD:
+    ///         - Raw
+    ///         - Post-block
+    ///         - Remaining block
+    ///         - Source breakdown (this could be a lot -- consider minimizing the refresh count before this)
     /// </summary>
     private static int CalculateIncomingDamage(Creature creature)
     {
