@@ -84,7 +84,6 @@ public static class IncomingDamageDisplay
         if (_playerHealthBar != null && GodotObject.IsInstanceValid(_playerHealthBar))
         {
             RefreshLabel(_playerHealthBar);
-            GD.Print($"Combat changed: {caller}");
         }
     }
     
