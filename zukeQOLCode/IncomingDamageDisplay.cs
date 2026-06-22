@@ -64,22 +64,27 @@ public static class IncomingDamageDisplay
     }
 
     /// <summary>
-    ///     PATCH: NHealthBar.RefreshValues
+    ///     PATCH: CombatStateTracker.NotifyCombatStateChanged
     ///
-    ///     The game calls RefreshValues whenever it wants the HP bar to visually
-    ///     update (on damage, healing, start of combat, etc.). We piggyback on
-    ///     this to keep our text up to date.
+    ///     The game calls this whenever the state of combat has changed.
+    ///     Everytime it does so, we refresh the label.
     ///
-    ///     This fires more often than strictly necessary, but it's simple and safe.
+    ///     Note: This is very overkill but takes into account every time
+    ///     the amount of incoming damage can change - he says with a great
+    ///     deal of hope.
     /// </summary>
+    /// <param name="caller"></param>
     [HarmonyPostfix]
-    [HarmonyPatch(nameof(NHealthBar.RefreshValues))]
-    public static void AfterRefreshValues(NHealthBar __instance)
+    [HarmonyPatch(typeof(CombatStateTracker), nameof(CombatStateTracker.NotifyCombatStateChanged))]
+    public static void AfterCombatStateChanged(string caller)
     {
-        if (!IsPlayerBar(__instance)) return;
-        RefreshLabel(__instance);
+        if (_playerHealthBar != null && GodotObject.IsInstanceValid(_playerHealthBar))
+        {
+            RefreshLabel(_playerHealthBar);
+            GD.Print($"Combat changed: {caller}");
+        }
     }
-
+    
     /// <summary>
     ///     PATCH: NHealthBar.SetHpBarContainerSizeWithOffsets
     ///
@@ -96,27 +101,6 @@ public static class IncomingDamageDisplay
     {
         if (!IsPlayerBar(__instance)) return;
         RepositionLabel(__instance, size);
-    }
-
-    /// <summary>
-    ///     PATCH: Creature.InvokeDiedEvent
-    ///
-    ///     When a monster dies mid-combat, the total incoming damage changes
-    ///     immediately. We need to refresh our label so it reflects the new total.
-    ///
-    ///     This patch is on Creature rather than NHealthBar because monster death
-    ///     doesn't cause the player's HP bar to refresh.
-    /// </summary>
-    [HarmonyPostfix]
-    [HarmonyPatch(typeof(Creature), nameof(Creature.InvokeDiedEvent))]
-    public static void AfterCreatureDied()
-    {
-        // IsInstanceValid is Godot's way to check if a node reference is still
-        // alive in the scene tree. Always use this instead of a null check for nodes.
-        if (_playerHealthBar != null && GodotObject.IsInstanceValid(_playerHealthBar))
-        {
-            RefreshLabel(_playerHealthBar);
-        }
     }
 
     // -------------------------------------------------------------------------
