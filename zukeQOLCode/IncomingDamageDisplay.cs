@@ -36,7 +36,9 @@ public static class IncomingDamageDisplay
     ///     to a health bar node. We use this moment to create a reference to the player's health bar
     ///     because at this point the bar's creature reference is valid.
     ///
-    ///     TODO: Can this be done simply by dereferencing the player
+    ///     TODO:
+    ///     - Can this be done simply by dereferencing the player
+    ///     - Are the create and refresh calls duplicate?
     /// </summary>
     [HarmonyPostfix]
     [HarmonyPatch(nameof(NHealthBar.SetCreature))]
@@ -44,6 +46,8 @@ public static class IncomingDamageDisplay
     {
         if (!IsPlayerBar(__instance)) return;
         _playerHealthBar = __instance;
+        CreatePanelIfNotExists();
+        RefreshPanel();
     }
     
     /// <summary>
@@ -85,10 +89,29 @@ public static class IncomingDamageDisplay
     [HarmonyPatch(typeof(CombatStateTracker), nameof(CombatStateTracker.NotifyCombatStateChanged))]
     public static void AfterCombatStateChanged(string caller)
     {
-        if (_playerHealthBar != null && GodotObject.IsInstanceValid(_playerHealthBar))
-        {
-            RefreshPanel();
-        }
+        RefreshPanel();
+    }
+    
+    /// <summary>
+    ///     PATCH: NCreature._ExitTree
+    ///
+    ///     Fires when the player's creature node is removed from the scene tree
+    ///     (e.g. between combats). We use this to explicitly clear all references
+    ///     so that the next combat starts from a clean slate.
+    ///     
+    ///     The panel is a child of this creature, so it will be freed automatically
+    ///     along with it — we just need to null out our reference so
+    ///     CreatePanelIfNotExists knows to make a fresh one.
+    /// </summary>
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(NCreature), nameof(NCreature._ExitTree))]
+    public static void AfterCreatureExitTree(NCreature __instance)
+    {
+        if (_playerCreatureNode != __instance) return;
+    
+        _playerCreatureNode = null;
+        _playerHealthBar = null;
+        _panel = null; // Panel is a child of this creature; it's already being freed
     }
 
     // -------------------------------------------------------------------------
@@ -101,7 +124,13 @@ public static class IncomingDamageDisplay
     /// </summary>
     private static void CreatePanelIfNotExists()
     {
+        // Set panel to null if it is no longer valid
+        if (_panel != null && !_panel.IsValid()) _panel = null;
+        
+        // If panel already set, do nothing
         if (_panel != null) return;
+        
+        // Create the new panel
         _panel = new IncomingDamagePanel();
         
         if (_playerCreatureNode != null && GodotObject.IsInstanceValid(_playerCreatureNode))
@@ -115,8 +144,9 @@ public static class IncomingDamageDisplay
     /// </summary>
     private static void RepositionPanel()
     {
-        if (_panel == null || _playerCreatureNode == null) return;
-
+        if (_panel == null || !_panel.IsValid()) return;
+        if (_playerCreatureNode == null || !GodotObject.IsInstanceValid(_playerCreatureNode)) return;
+        
         _panel.Reposition(_playerCreatureNode);
     }
 
@@ -125,7 +155,9 @@ public static class IncomingDamageDisplay
     /// </summary>
     private static void RefreshPanel()
     {
-        if (_panel == null || _playerHealthBar == null || !_playerHealthBar.Visible) return;
+        if (_panel == null || !_panel.IsValid()) return;
+        if (_playerHealthBar == null || !GodotObject.IsInstanceValid(_playerHealthBar) || 
+            !_playerHealthBar.Visible) return;
 
         // Hide panel during enemy turn
         if (CombatManager.Instance.IsEnemyTurnStarted)
