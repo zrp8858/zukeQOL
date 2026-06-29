@@ -37,16 +37,6 @@ public class IncomingDamagePanel
         margin.AddChild(vbox);
         _panel.AddChild(margin);
     }
-    
-    /// <summary>
-    ///     Whether the current panel is a valid Godot Object.
-    ///
-    ///     TODO:
-    ///     Are the checks to IsValid necessary now that we intentionally
-    ///     nullify the nodes?
-    /// </summary>
-    /// <returns></returns>
-    public bool IsValid() => GodotObject.IsInstanceValid(_panel);
 
     /// <summary>
     ///     Adjusts the visibility of the panel.

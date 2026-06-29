@@ -144,9 +144,6 @@ public static class IncomingDamageDisplay
     /// </summary>
     private static void CreatePanelIfNotExists()
     {
-        // Set panel to null if it is no longer valid
-        if (_panel != null && !_panel.IsValid()) _panel = null;
-        
         // If panel already set, do nothing
         if (_panel != null) return;
         
@@ -164,7 +161,7 @@ public static class IncomingDamageDisplay
     /// </summary>
     private static void RepositionPanel()
     {
-        if (_panel == null || !_panel.IsValid()) return;
+        if (_panel == null) return;
         if (_playerCreatureNode == null || !GodotObject.IsInstanceValid(_playerCreatureNode)) return;
         
         _panel.Reposition(_playerCreatureNode);
@@ -175,7 +172,7 @@ public static class IncomingDamageDisplay
     /// </summary>
     private static void RefreshPanel()
     {
-        if (_panel == null || !_panel.IsValid()) return;
+        if (_panel == null) return;
         if (_playerHealthBar == null || !GodotObject.IsInstanceValid(_playerHealthBar) || 
             !_playerHealthBar.Visible) return;
 
