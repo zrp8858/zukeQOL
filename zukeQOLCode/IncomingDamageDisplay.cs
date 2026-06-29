@@ -3,6 +3,7 @@ using HarmonyLib;
 using MegaCrit.Sts2.Core.Combat;
 using MegaCrit.Sts2.Core.Context;
 using MegaCrit.Sts2.Core.Entities.Creatures;
+using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.MonsterMoves.Intents;
 using MegaCrit.Sts2.Core.Nodes.Combat;
 using MegaCrit.Sts2.Core.Runs;
@@ -13,6 +14,7 @@ namespace zukeQOL.zukeQOLCode;
 ///     Adds a panel to the left of the player's hitbox showing information
 ///     about incoming attack damage this turn.
 /// </summary>
+[HarmonyPatch]
 public static class IncomingDamageDisplay
 {
     // -------------------------------------------------------------------------
@@ -36,7 +38,7 @@ public static class IncomingDamageDisplay
     ///     because at this point the bar's creature reference is valid.
     /// </summary>
     [HarmonyPostfix]
-    [HarmonyPatch(nameof(NHealthBar.SetCreature))]
+    [HarmonyPatch(typeof(NHealthBar), nameof(NHealthBar.SetCreature))]
     public static void AfterSetCreature(NHealthBar __instance)
     {
         if (!IsPlayerBar(__instance)) return;
@@ -60,9 +62,10 @@ public static class IncomingDamageDisplay
     [HarmonyPatch(typeof(NCreature), nameof(NCreature.UpdateBounds), typeof(Node))]
     public static void AfterCreatureUpdate(NCreature __instance)
     {
-        var player = LocalContext.GetMe(RunManager.Instance.State);
-        if (player == null || !__instance.Entity.IsPlayer) return;
-        if (__instance.Entity.Player != player) return;
+        if (!__instance.Entity.IsPlayer) return;
+
+        var player = GetLocalPlayer();
+        if (player == null || __instance.Entity.Player != player) return;
 
         _playerCreatureNode = __instance;
         TryInitializePanel();
@@ -176,24 +179,24 @@ public static class IncomingDamageDisplay
         if (_playerHealthBar == null || !GodotObject.IsInstanceValid(_playerHealthBar) || 
             !_playerHealthBar.Visible) return;
 
-        // Hide panel during enemy turn
-        if (CombatManager.Instance.IsEnemyTurnStarted)
-        {
-            _panel.SetVisible(false);
-            return;
-        }
-
-        // Sanity check: make sure we have a valid creature in a combat state.
         var creature = _playerHealthBar._creature;
-        if (creature.Player == null || creature.CombatState == null)
+        var player = GetLocalPlayer();
+
+        if (player == null)
         {
             _panel.SetVisible(false);
             return;
         }
-
-        var damageInfo = CalculateIncomingDamage(creature);
         
-        _panel.Update(damageInfo);
+        var damageInfo = CalculateIncomingDamage(creature, player);
+
+        if (damageInfo == null)
+        {
+            _panel.SetVisible(false);
+            return;
+        }
+        
+        _panel.Update((IncomingDamageInfo)damageInfo);
         _panel.SetVisible(true);
     }
 
@@ -202,16 +205,9 @@ public static class IncomingDamageDisplay
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Sums all incoming attack damage for this turn from hittable enemies.
-    ///
-    ///     Key concepts:
-    ///     - HittableEnemies: enemies that can currently be targeted (excludes
-    ///       untargetable/stealth enemies).
-    ///     - NextMove.Intents: a monster can have multiple intents in one turn
-    ///       (e.g. attack + buff). We only care about attack-type intents.
-    ///     - GetTotalDamage: calculates the *actual* damage after modifiers like
-    ///       Vulnerable, Weak, or the player's current armor/block. This is more
-    ///       useful than the raw base value.
+    ///     Calculates data about incoming damage and returns it in the form of
+    ///     an IncomingDamageInfo struct.
+    ///     Returns null if it encounters an invalid state.
     ///
     ///     TODO:
     ///     - Introduce effects like buffer & intangible into the calculation
@@ -225,11 +221,10 @@ public static class IncomingDamageDisplay
     ///         - Remaining block
     ///         - Source breakdown (this could be a lot -- consider minimizing the refresh count before this)
     /// </summary>
-    private static IncomingDamageInfo CalculateIncomingDamage(Creature creature)
+    private static IncomingDamageInfo? CalculateIncomingDamage(Creature creature, Player player)
     {
-        if (creature.CombatState == null) return new IncomingDamageInfo();
-
-        var player = LocalContext.GetMe(RunManager.Instance.State);
+        if (creature.CombatState == null) return null;
+        
         var raw = 0;
 
         // Calculates total incoming damage from all enemies
@@ -248,7 +243,6 @@ public static class IncomingDamageDisplay
             }
         }
 
-        if (player == null) return new IncomingDamageInfo();
         var block = player.Creature._block;
         
         var total = Math.Max(0, raw - block);
@@ -261,6 +255,9 @@ public static class IncomingDamageDisplay
     // -------------------------------------------------------------------------
     // Utility
     // -------------------------------------------------------------------------
+    
+    private static Player? GetLocalPlayer() =>
+        LocalContext.GetMe(RunManager.Instance.State);
 
     /// <summary>
     ///     Returns true if this health bar belongs to the local player.
@@ -268,7 +265,7 @@ public static class IncomingDamageDisplay
     /// </summary>
     private static bool IsPlayerBar(NHealthBar bar)
     {
-        var player = LocalContext.GetMe(RunManager.Instance.State);
+        var player = GetLocalPlayer();
         return player != null && bar._creature.Player == player;
     }
 }
