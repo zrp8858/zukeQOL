@@ -13,7 +13,6 @@ namespace zukeQOL.zukeQOLCode;
 ///     Adds a panel to the left of the player's hitbox showing information
 ///     about incoming attack damage this turn.
 /// </summary>
-[HarmonyPatch(typeof(NHealthBar))]
 public static class IncomingDamageDisplay
 {
     // -------------------------------------------------------------------------
@@ -35,10 +34,6 @@ public static class IncomingDamageDisplay
     ///     The game calls SetCreature when it assigns a creature (player or monster)
     ///     to a health bar node. We use this moment to create a reference to the player's health bar
     ///     because at this point the bar's creature reference is valid.
-    ///
-    ///     TODO:
-    ///     - Can this be done simply by dereferencing the player
-    ///     - Are the create and refresh calls duplicate?
     /// </summary>
     [HarmonyPostfix]
     [HarmonyPatch(nameof(NHealthBar.SetCreature))]
@@ -46,8 +41,12 @@ public static class IncomingDamageDisplay
     {
         if (!IsPlayerBar(__instance)) return;
         _playerHealthBar = __instance;
-        CreatePanelIfNotExists();
+        
+        TryInitializePanel();
+
+        if (_panel == null) return;
         RefreshPanel();
+        RepositionPanel();
     }
     
     /// <summary>
@@ -66,7 +65,9 @@ public static class IncomingDamageDisplay
         if (__instance.Entity.Player != player) return;
 
         _playerCreatureNode = __instance;
-        CreatePanelIfNotExists();
+        TryInitializePanel();
+        
+        if (_panel == null) return;
         RefreshPanel();
         RepositionPanel();
     }
@@ -82,13 +83,16 @@ public static class IncomingDamageDisplay
     ///     deal of hope.
     ///
     ///     TODO:
-    ///     - Minimize refresh count
+    ///     - Can refresh count be minimized more?
     /// </summary>
     /// <param name="caller"></param>
     [HarmonyPostfix]
     [HarmonyPatch(typeof(CombatStateTracker), nameof(CombatStateTracker.NotifyCombatStateChanged))]
     public static void AfterCombatStateChanged(string caller)
     {
+        // Only refresh on player turn
+        if (CombatManager.Instance.IsEnemyTurnStarted) return;
+        
         RefreshPanel();
     }
     
@@ -117,6 +121,19 @@ public static class IncomingDamageDisplay
     // -------------------------------------------------------------------------
     // Panel Lifecycle Helpers
     // -------------------------------------------------------------------------
+    
+    /// <summary>
+    ///     Creates and positions the panel, but only once both the creature node
+    ///     and health bar references are valid. Safe to call from either patch —
+    ///     whichever fires second will complete initialization.
+    /// </summary>
+    private static void TryInitializePanel()
+    {
+        if (_playerCreatureNode == null || !GodotObject.IsInstanceValid(_playerCreatureNode)) return;
+        if (_playerHealthBar == null || !GodotObject.IsInstanceValid(_playerHealthBar)) return;
+
+        CreatePanelIfNotExists();
+    }
     
     /// <summary>
     ///     Creates the info panel object for the first time.
